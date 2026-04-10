@@ -158,3 +158,10 @@
 - **Why this fix is correct:** Logout now always attempts to delete the session row from the cookie token, and honestly reports whether it did.
 - **Prevention / follow-up:** Integration test logout with an expired session to confirm the row is cleaned up.
 
+## Ticket VAL-203: State Code Validation
+
+- **Symptom:** System accepted `XX` as a valid state code.
+- **Root cause:** Server only checked `length(2).toUpperCase()`; client only checked `/^[A-Z]{2}$/`. Neither validated against actual US state/territory codes.
+- **Fix:** Added `lib/validation/stateCodes.ts` with a `US_STATE_CODES` set (50 states + 6 territories) and `validateStateCode()`; wired into server `.refine()` and client `validate`; added partitioned tests in `lib/validation/stateCodes.test.ts`.
+- **Why this fix is correct:** Only real US state/territory codes are accepted; arbitrary 2-letter strings like `XX` are rejected on both client and server.
+- **Prevention / follow-up:** Keep the state code set updated if new territories are added.
