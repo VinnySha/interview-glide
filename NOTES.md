@@ -29,3 +29,11 @@
 - **Fix:** Added `.refine()` on the server Zod schema computing age from the parsed date and rejecting under 18; synced the same logic to the client `validate` rule; added partitioned tests in `server/routers/auth.dob.test.ts`.
 - **Why this fix is correct:** Server rejects any DOB that doesn't parse or yields age < 18 regardless of client behavior; client gives immediate feedback with the same rule.
 - **Prevention / follow-up:** Extract age-check into a shared utility if more forms need it; consider a `max` attribute on the HTML date input for additional UX guardrail.
+
+## Ticket PERF-408: Resource Leak
+
+- **Symptom:** Database connections remained open, risking resource exhaustion under load.
+- **Root cause:** `initDb()` in `lib/db/index.ts` opened a second `new Database(dbPath)` connection (`conn`) pushed into a `connections` array that was never used or closed. The DDL already ran on the primary `sqlite` instance.
+- **Fix:** Removed the unused `conn` and `connections` array from `initDb()`; added a source-level regression test in `lib/db/index.test.ts` asserting only one `new Database(` call exists and no dangling connection arrays remain.
+- **Why this fix is correct:** Only one SQLite connection (the one backing Drizzle) is now opened; the leaked second handle and its accumulating array are gone.
+- **Prevention / follow-up:** Code review for extra connection instantiations; add connection-count monitoring in production.
