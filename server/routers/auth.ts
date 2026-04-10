@@ -11,6 +11,40 @@ import { detectEmailTypo } from "@/lib/validation/email";
 import { US_STATE_CODES } from "@/lib/validation/stateCodes";
 import { sanitizeUser } from "../lib/sanitizeUser";
 
+/** Set a cookie on the response, handling both Next.js and Fetch adapters. */
+function setCookieHeader(res: any, value: string) {
+  if ("setHeader" in res) {
+    res.setHeader("Set-Cookie", value);
+  } else {
+    (res as Headers).set("Set-Cookie", value);
+  }
+}
+
+/**
+ * Invalidate prior sessions, create a new one, and set the session cookie.
+ *
+ * @returns the new session token.
+ */
+async function issueSession(userId: number, res: any): Promise<string> {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET || "temporary-secret-for-interview", {
+    expiresIn: "7d",
+  });
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  await db.insert(sessions).values({
+    userId,
+    token,
+    expiresAt: expiresAt.toISOString(),
+  });
+
+  setCookieHeader(res, `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
+  return token;
+}
+
 export const authRouter = router({
   signup: publicProcedure
     .input(
@@ -83,28 +117,7 @@ export const authRouter = router({
         });
       }
 
-      // Invalidate any prior sessions for this user before issuing a new one
-      await db.delete(sessions).where(eq(sessions.userId, user.id));
-
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "temporary-secret-for-interview", {
-        expiresIn: "7d",
-      });
-
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await db.insert(sessions).values({
-        userId: user.id,
-        token,
-        expiresAt: expiresAt.toISOString(),
-      });
-
-      if ("setHeader" in ctx.res) {
-        ctx.res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
-      } else {
-        (ctx.res as Headers).set("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
-      }
-
+      const token = await issueSession(user.id, ctx.res);
       return { user: sanitizeUser(user), token };
     }),
 
@@ -134,28 +147,7 @@ export const authRouter = router({
         });
       }
 
-      // Invalidate any prior sessions for this user before issuing a new one
-      await db.delete(sessions).where(eq(sessions.userId, user.id));
-
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "temporary-secret-for-interview", {
-        expiresIn: "7d",
-      });
-
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await db.insert(sessions).values({
-        userId: user.id,
-        token,
-        expiresAt: expiresAt.toISOString(),
-      });
-
-      if ("setHeader" in ctx.res) {
-        ctx.res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
-      } else {
-        (ctx.res as Headers).set("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
-      }
-
+      const token = await issueSession(user.id, ctx.res);
       return { user: sanitizeUser(user), token };
     }),
 
@@ -176,12 +168,7 @@ export const authRouter = router({
       await db.delete(sessions).where(eq(sessions.token, token));
     }
 
-    // Clear cookie
-    if ("setHeader" in ctx.res) {
-      ctx.res.setHeader("Set-Cookie", `session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
-    } else {
-      (ctx.res as Headers).set("Set-Cookie", `session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
-    }
+    setCookieHeader(ctx.res, `session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
 
     if (!token) {
       return { success: false, message: "No active session" };
