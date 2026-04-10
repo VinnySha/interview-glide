@@ -74,7 +74,9 @@ export const authRouter = router({
         });
       }
 
-      // Create session
+      // Invalidate any prior sessions for this user before issuing a new one
+      await db.delete(sessions).where(eq(sessions.userId, user.id));
+
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "temporary-secret-for-interview", {
         expiresIn: "7d",
       });
@@ -88,7 +90,6 @@ export const authRouter = router({
         expiresAt: expiresAt.toISOString(),
       });
 
-      // Set cookie
       if ("setHeader" in ctx.res) {
         ctx.res.setHeader("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
       } else {
@@ -123,6 +124,9 @@ export const authRouter = router({
           message: "Invalid credentials",
         });
       }
+
+      // Invalidate any prior sessions for this user before issuing a new one
+      await db.delete(sessions).where(eq(sessions.userId, user.id));
 
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "temporary-secret-for-interview", {
         expiresIn: "7d",
