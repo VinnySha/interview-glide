@@ -189,3 +189,11 @@
 - **Fix:** Added `.orderBy(desc(transactions.id))` so transactions are returned newest first; added behavioral tests in `server/routers/account.sorting.test.ts`.
 - **Why this fix is correct:** Explicit descending sort by ID gives deterministic newest-first ordering regardless of DB internals.
 - **Prevention / follow-up:** Require `orderBy` on all list queries as a code review convention.
+
+## Ticket UI-101: Dark Mode Text Visibility
+
+- **Symptom:** Text typed into form inputs was invisible (white on white) in dark mode.
+- **Root cause:** Dark mode sets `--foreground: #ededed` on `body`, which form inputs inherit. Inputs have white backgrounds (Tailwind `border-gray-300` classes) but no explicit text color, so inherited light text becomes invisible.
+- **Fix:** Added a global CSS rule in `app/globals.css` setting `input, select, textarea { color: #171717; }` so form text is always dark regardless of body color scheme.
+- **Why this fix is correct:** Inputs always have light backgrounds in this app, so pinning their text to dark ensures visibility in both light and dark mode without touching individual component classes.
+- **Prevention / follow-up:** Consider a full dark-mode-aware design system with explicit input theming if dark backgrounds for inputs are ever introduced.
