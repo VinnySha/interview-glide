@@ -165,3 +165,11 @@
 - **Fix:** Added `lib/validation/stateCodes.ts` with a `US_STATE_CODES` set (50 states + 6 territories) and `validateStateCode()`; wired into server `.refine()` and client `validate`; added partitioned tests in `lib/validation/stateCodes.test.ts`.
 - **Why this fix is correct:** Only real US state/territory codes are accepted; arbitrary 2-letter strings like `XX` are rejected on both client and server.
 - **Prevention / follow-up:** Keep the state code set updated if new territories are added.
+
+## Ticket VAL-204: Phone Number Format
+
+- **Symptom:** System accepted any string of digits as a phone number; client and server had mismatched rules.
+- **Root cause:** Server used `/^\+?\d{10,15}$/` (optional `+`), client used `/^\d{10}$/` (no `+`, US-only). Neither enforced a standard format.
+- **Fix:** Both server and client now require E.164 format (`/^\+\d{10,15}$/` — mandatory `+` prefix with 10-15 digits); updated placeholder to `+12125551234`; added partitioned tests in `server/routers/auth.phone.test.ts`.
+- **Why this fix is correct:** E.164 is the international standard for phone numbers; mandatory `+` prefix prevents ambiguous local-only numbers; client and server rules are now identical.
+- **Prevention / follow-up:** Consider a phone number formatting library for display and input masking.
