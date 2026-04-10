@@ -7,17 +7,7 @@ import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { encryptSsn } from "@/lib/security/ssn";
-
-/**
- * Remove sensitive fields before returning user data to clients.
- *
- * @param user full user record from the database.
- * @returns user object safe for API responses.
- */
-export function sanitizeUser(user: typeof users.$inferSelect) {
-  const { password: _password, ssn: _ssn, ...safeUser } = user;
-  return safeUser;
-}
+import { sanitizeUser } from "../lib/sanitizeUser";
 
 export const authRouter = router({
   signup: publicProcedure

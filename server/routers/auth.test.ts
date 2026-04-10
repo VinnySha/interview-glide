@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeUser } from "./auth";
+import { sanitizeUser } from "../lib/sanitizeUser";
 
 describe("auth router user sanitization", () => {
   /*
