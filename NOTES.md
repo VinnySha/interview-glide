@@ -1,3 +1,7 @@
+# Critical Priority
+
+---
+
 ## Ticket SEC-301: SSN Storage
 
 - **Symptom:** SSNs were stored in plaintext in `users.ssn`, and auth responses could include sensitive user fields.
@@ -61,3 +65,17 @@
 - **Fix:** Replaced the fallback with a `TRPCError` throw so the client sees an explicit error; added regression tests in `server/routers/account.creation.test.ts`.
 - **Why this fix is correct:** If the account wasn't persisted or can't be fetched, the user gets an error instead of phantom data with a wrong balance.
 - **Prevention / follow-up:** Never use optimistic fallback objects for financial data; always fail loudly on DB inconsistencies.
+
+---
+
+# High Priority
+
+---
+
+## Ticket SEC-304: Session Management
+
+- **Symptom:** Multiple valid sessions accumulated per user with no invalidation; old sessions remained active after new logins.
+- **Root cause:** `signup` and `login` both inserted a new session row without deleting prior sessions for the same user.
+- **Fix:** Added `db.delete(sessions).where(eq(sessions.userId, user.id))` before session creation in both signup and login; added regression tests in `server/routers/auth.session.test.ts`.
+- **Why this fix is correct:** Each auth event now invalidates all prior sessions, ensuring only one valid session per user at a time.
+- **Prevention / follow-up:** Consider a session limit (e.g. max N devices) instead of single-session if multi-device support is needed later.
