@@ -53,3 +53,11 @@
 - **Fix:** Added `.where(eq(transactions.accountId, input.accountId))` and changed to `.orderBy(desc(transactions.id))` so the query returns the newest transaction for the specific account; added regression tests in `server/routers/account.txnQuery.test.ts`.
 - **Why this fix is correct:** The query now scopes to the funding account and sorts newest-first, so the returned transaction matches the one just created.
 - **Prevention / follow-up:** Use `RETURNING` or fetch by inserted ID instead of re-querying by sort order.
+
+## Ticket PERF-401: Account Creation Error
+
+- **Symptom:** New accounts showed $100 balance when the DB fetch after insert returned nothing.
+- **Root cause:** `createAccount` had a fallback `|| { balance: 100, status: "pending", ... }` that silently returned fake data instead of reporting failure.
+- **Fix:** Replaced the fallback with a `TRPCError` throw so the client sees an explicit error; added regression tests in `server/routers/account.creation.test.ts`.
+- **Why this fix is correct:** If the account wasn't persisted or can't be fetched, the user gets an error instead of phantom data with a wrong balance.
+- **Prevention / follow-up:** Never use optimistic fallback objects for financial data; always fail loudly on DB inconsistencies.
