@@ -104,6 +104,14 @@
 - **Why this fix is correct:** `crypto.randomInt` draws from the OS entropy pool, making account numbers unpredictable.
 - **Prevention / follow-up:** Lint or code review for `Math.random` usage in security-sensitive contexts.
 
+## Ticket VAL-210: Card Type Detection
+
+- **Symptom:** Valid Mastercard 2-series cards (2221-2720) were rejected, and there was no card type detection for the UI.
+- **Root cause:** `isRecognizedCard` only matched Mastercard classic prefixes (51-55); no `detectCardType` function existed.
+- **Fix:** Added Mastercard 2-series regex to issuer matching; refactored into `detectCardType()` returning the issuer name (or null); added partitioned tests in `lib/validation/cardNumber.test.ts`.
+- **Why this fix is correct:** All major issuers including modern Mastercard ranges are now recognized; `detectCardType` enables future UI card-type display.
+- **Prevention / follow-up:** Keep issuer rules updated as networks add prefixes; wire `detectCardType` into the FundingModal UI for visual feedback.
+
 ---
 
 # Medium Priority
