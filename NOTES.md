@@ -1,3 +1,11 @@
+# SecureBank Bug Investigation & Resolution
+
+For additional notes on my process, reasoning, and prioritization decisions, see the [Notes Along the Way](https://docs.google.com/document/d/1HJR9JlO8i3NUpB0w9ctphL1fG6gQthaOSgpOyp8je7U/edit?usp=sharing) tab in my write-up document.
+
+I prioritized issues by customer risk: first security/compliance and financial correctness, then authentication/session risks and transaction validation, and finally lower-severity UX and formatting defects. For each issue, I used a repeatable workflow of reproduction, root-cause analysis, targeted fix, regression testing, and concise documentation.
+
+---
+
 # Critical Priority
 
 ---
