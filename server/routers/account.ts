@@ -1,14 +1,14 @@
 import { z } from "zod";
+import { randomInt } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../trpc";
 import { db } from "@/lib/db";
 import { accounts, transactions } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
+/** Generate a 10-digit account number using a CSPRNG. */
 function generateAccountNumber(): string {
-  return Math.floor(Math.random() * 1000000000)
-    .toString()
-    .padStart(10, "0");
+  return randomInt(0, 1_000_000_000).toString().padStart(10, "0");
 }
 
 export const accountRouter = router({
