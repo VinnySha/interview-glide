@@ -66,6 +66,14 @@
 - **Why this fix is correct:** If the account wasn't persisted or can't be fetched, the user gets an error instead of phantom data with a wrong balance.
 - **Prevention / follow-up:** Never use optimistic fallback objects for financial data; always fail loudly on DB inconsistencies.
 
+## Ticket VAL-206: Card Number Validation
+
+- **Symptom:** System accepted invalid card numbers — no checksum validation, and only Visa/Mastercard prefixes recognized.
+- **Root cause:** `FundingModal` only checked for 16 digits and prefix `4` or `5`; no Luhn validation, no Amex/Discover/JCB support.
+- **Fix:** Added `lib/validation/cardNumber.ts` with Luhn checksum, issuer prefix recognition (Visa, Mastercard, Amex, Discover, JCB), and proper length ranges; wired into `FundingModal` validation; added partitioned tests in `lib/validation/cardNumber.test.ts`.
+- **Why this fix is correct:** Luhn catches typos and random digits; prefix + length matching covers all major card networks; structurally invalid numbers are rejected before any transaction attempt.
+- **Prevention / follow-up:** Add server-side card validation on the `fundAccount` endpoint for defense in depth.
+
 ---
 
 # High Priority
@@ -109,3 +117,4 @@
 - **Fix:** Moved token extraction and session deletion outside the `ctx.user` guard; return `success: false` when no token is present; added regression tests in `server/routers/auth.logout.test.ts`.
 - **Why this fix is correct:** Logout now always attempts to delete the session row from the cookie token, and honestly reports whether it did.
 - **Prevention / follow-up:** Integration test logout with an expired session to confirm the row is cleaned up.
+
