@@ -45,3 +45,11 @@
 - **Fix:** Replaced the loop with a single `account.balance + amount` rounded to cents (`Math.round(… * 100) / 100`); added partitioned tests in `server/routers/account.balance.test.ts`.
 - **Why this fix is correct:** One addition + cent rounding eliminates drift; the returned balance now matches exactly what the DB stores.
 - **Prevention / follow-up:** Use integer cents internally for all monetary arithmetic if precision requirements grow.
+
+## Ticket PERF-405: Missing Transactions
+
+- **Symptom:** After multiple funding events, not all transactions appeared in history.
+- **Root cause:** `fundAccount` fetched the "just-created" transaction with `.orderBy(transactions.createdAt).limit(1)` — no account filter, ascending order. This always returned the globally oldest transaction row, not the one just inserted.
+- **Fix:** Added `.where(eq(transactions.accountId, input.accountId))` and changed to `.orderBy(desc(transactions.id))` so the query returns the newest transaction for the specific account; added regression tests in `server/routers/account.txnQuery.test.ts`.
+- **Why this fix is correct:** The query now scopes to the funding account and sorts newest-first, so the returned transaction matches the one just created.
+- **Prevention / follow-up:** Use `RETURNING` or fetch by inserted ID instead of re-querying by sort order.
