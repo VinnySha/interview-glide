@@ -173,3 +173,11 @@
 - **Fix:** Both server and client now require E.164 format (`/^\+\d{10,15}$/` — mandatory `+` prefix with 10-15 digits); updated placeholder to `+12125551234`; added partitioned tests in `server/routers/auth.phone.test.ts`.
 - **Why this fix is correct:** E.164 is the international standard for phone numbers; mandatory `+` prefix prevents ambiguous local-only numbers; client and server rules are now identical.
 - **Prevention / follow-up:** Consider a phone number formatting library for display and input masking.
+
+## Ticket VAL-209: Amount Input Issues
+
+- **Symptom:** System accepted amounts with multiple leading zeros like `00100.00`.
+- **Root cause:** Client regex `/^\d+\.?\d{0,2}$/` allowed any number of leading digits including zeros.
+- **Fix:** Changed pattern to `/^(0|[1-9]\d*)\.?\d{0,2}$/` which allows `0` or a non-zero-leading number; added partitioned tests in `components/FundingModal.amount.test.ts`.
+- **Why this fix is correct:** `0` is allowed for sub-dollar amounts (`0.50`), but `01`, `00100` etc. are rejected. Decimal precision is still capped at 2 places.
+- **Prevention / follow-up:** Consider normalizing the input on blur (strip leading zeros) for better UX.
