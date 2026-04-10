@@ -13,3 +13,11 @@
 - **Fix:** Render description as normal React text (`{transaction.description ?? "-"}`) so content is escaped; added regression tests in `lib/security/transactionDescriptionRender.test.ts`.
 - **Why this fix is correct:** React escapes text node children by default, so markup in the DB is displayed as text and not parsed as HTML.
 - **Prevention / follow-up:** Avoid `dangerouslySetInnerHTML` for user- or DB-sourced strings; consider ESLint `react/no-danger` and server-side length/sanitization if descriptions are ever rendered in email or PDF.
+
+## Ticket VAL-208: Weak Password Requirements
+
+- **Symptom:** Passwords like `abcdefgh` (no uppercase, no special char) were accepted by the server.
+- **Root cause:** Server Zod schema only enforced `min(8)`; client had partial checks (number required) but no uppercase or special character rules, and the server is the source of truth.
+- **Fix:** Added `.regex()` rules on the server Zod schema requiring lowercase, uppercase, digit, and special character; synced client `validate` rules to match; added partitioned tests in `server/routers/auth.password.test.ts`.
+- **Why this fix is correct:** Server enforces all complexity rules regardless of client, and client gives immediate feedback matching the same rules.
+- **Prevention / follow-up:** Keep password policy in a shared constant or Zod schema importable by both client and server to prevent drift.
