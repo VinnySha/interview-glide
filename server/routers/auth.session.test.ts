@@ -1,36 +1,107 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "@/lib/db";
+import { users, accounts, transactions, sessions } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { authRouter } from "./auth";
 
 /**
- * SEC-304: Signup and login must invalidate prior sessions
- * before creating a new one, ensuring only one valid session
- * per user at a time.
+ * SEC-304: Signup and login must invalidate prior sessions,
+ * ensuring only one valid session per user at a time.
  */
-const source = readFileSync(resolve(__dirname, "auth.ts"), "utf-8");
+
+function createCaller() {
+  return authRouter.createCaller({
+    user: null,
+    req: { headers: { cookie: "" } },
+    res: { setHeader: () => undefined },
+  } as any);
+}
+
+const signupInput = {
+  email: "session-test@example.com",
+  password: "Abcdef1!",
+  firstName: "Test",
+  lastName: "User",
+  phoneNumber: "+15555550123",
+  dateOfBirth: "1990-01-01",
+  ssn: "123456789",
+  address: "123 St",
+  city: "City",
+  state: "CA",
+  zipCode: "12345",
+};
 
 describe("session invalidation on auth (SEC-304)", () => {
   /*
    * Testing strategy
    *
-   * partition on session cleanup before new session:
-   *   deletes prior sessions for user (correct)
-   *   no deletion before insert (bug — sessions accumulate)
+   * partition on auth event:
+   *   signup
+   *   login (after signup)
+   *   second login (after first login)
    *
-   * partition on auth flow:
-   *   signup path
-   *   login path
+   * partition on session count after event:
+   *   exactly one session for user (correct)
+   *   multiple sessions for user (bug)
    */
 
-  it("covers signup path deletes prior sessions before insert", () => {
-    const signupBlock = source.slice(0, source.indexOf("login:"));
-    expect(signupBlock).toContain("db.delete(sessions)");
-    expect(signupBlock).toContain("sessions.userId, user.id");
+  beforeEach(async () => {
+    process.env.SSN_ENCRYPTION_KEY = "test-only-ssn-key";
+    await db.delete(sessions);
+    await db.delete(transactions);
+    await db.delete(accounts);
+    await db.delete(users);
   });
 
-  it("covers login path deletes prior sessions before insert", () => {
-    const loginBlock = source.slice(source.indexOf("login:"), source.indexOf("logout:"));
-    expect(loginBlock).toContain("db.delete(sessions)");
-    expect(loginBlock).toContain("sessions.userId, user.id");
+  it("covers signup creates exactly one session", async () => {
+    const caller = createCaller();
+    const result = await caller.signup(signupInput);
+
+    const userSessions = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, result.user.id));
+
+    expect(userSessions).toHaveLength(1);
+  });
+
+  it("covers login after signup still results in exactly one session", async () => {
+    const caller = createCaller();
+    await caller.signup(signupInput);
+
+    await caller.login({
+      email: signupInput.email,
+      password: signupInput.password,
+    });
+
+    const user = await db.select().from(users).where(eq(users.email, signupInput.email)).get();
+    const userSessions = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, user!.id));
+
+    expect(userSessions).toHaveLength(1);
+  });
+
+  it("covers second login still results in exactly one session", async () => {
+    const caller = createCaller();
+    await caller.signup(signupInput);
+
+    await caller.login({
+      email: signupInput.email,
+      password: signupInput.password,
+    });
+    await caller.login({
+      email: signupInput.email,
+      password: signupInput.password,
+    });
+
+    const user = await db.select().from(users).where(eq(users.email, signupInput.email)).get();
+    const userSessions = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, user!.id));
+
+    expect(userSessions).toHaveLength(1);
   });
 });
