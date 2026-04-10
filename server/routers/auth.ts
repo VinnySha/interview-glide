@@ -6,6 +6,18 @@ import { publicProcedure, router } from "../trpc";
 import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { encryptSsn } from "@/lib/security/ssn";
+
+/**
+ * Remove sensitive fields before returning user data to clients.
+ *
+ * @param user full user record from the database.
+ * @returns user object safe for API responses.
+ */
+export function sanitizeUser(user: typeof users.$inferSelect) {
+  const { password: _password, ssn: _ssn, ...safeUser } = user;
+  return safeUser;
+}
 
 export const authRouter = router({
   signup: publicProcedure
@@ -35,9 +47,11 @@ export const authRouter = router({
       }
 
       const hashedPassword = await bcrypt.hash(input.password, 10);
+      const encryptedSsn = encryptSsn(input.ssn);
 
       await db.insert(users).values({
         ...input,
+        ssn: encryptedSsn,
         password: hashedPassword,
       });
 
@@ -72,7 +86,7 @@ export const authRouter = router({
         (ctx.res as Headers).set("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
       }
 
-      return { user: { ...user, password: undefined }, token };
+      return { user: sanitizeUser(user), token };
     }),
 
   login: publicProcedure
@@ -120,7 +134,7 @@ export const authRouter = router({
         (ctx.res as Headers).set("Set-Cookie", `session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`);
       }
 
-      return { user: { ...user, password: undefined }, token };
+      return { user: sanitizeUser(user), token };
     }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
