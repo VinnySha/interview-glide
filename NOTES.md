@@ -87,3 +87,11 @@
 - **Fix:** Added a 60-second buffer: sessions are rejected when `expiresIn <= 60_000ms`, removed the warning-only code path; added partitioned tests in `server/session.expiry.test.ts`.
 - **Why this fix is correct:** Requests near session expiry are now denied rather than racing against the clock, reducing the window for stale-session access.
 - **Prevention / follow-up:** Make buffer configurable via env var; consider issuing a refresh token before the buffer window.
+
+## Ticket SEC-302: Insecure Random Numbers
+
+- **Symptom:** Account numbers were potentially predictable.
+- **Root cause:** `generateAccountNumber()` used `Math.random()`, which is not cryptographically secure.
+- **Fix:** Replaced with `crypto.randomInt()` (CSPRNG); added regression test in `server/routers/account.rng.test.ts`.
+- **Why this fix is correct:** `crypto.randomInt` draws from the OS entropy pool, making account numbers unpredictable.
+- **Prevention / follow-up:** Lint or code review for `Math.random` usage in security-sensitive contexts.
