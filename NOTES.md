@@ -21,3 +21,11 @@
 - **Fix:** Added `.regex()` rules on the server Zod schema requiring lowercase, uppercase, digit, and special character; synced client `validate` rules to match; added partitioned tests in `server/routers/auth.password.test.ts`.
 - **Why this fix is correct:** Server enforces all complexity rules regardless of client, and client gives immediate feedback matching the same rules.
 - **Prevention / follow-up:** Keep password policy in a shared constant or Zod schema importable by both client and server to prevent drift.
+
+## Ticket VAL-202: Date of Birth Validation
+
+- **Symptom:** Future dates and ages under 18 were accepted during signup (e.g. birth year 2025).
+- **Root cause:** Server schema was `z.string()` with no date parsing or age check; client only enforced `required`.
+- **Fix:** Added `.refine()` on the server Zod schema computing age from the parsed date and rejecting under 18; synced the same logic to the client `validate` rule; added partitioned tests in `server/routers/auth.dob.test.ts`.
+- **Why this fix is correct:** Server rejects any DOB that doesn't parse or yields age < 18 regardless of client behavior; client gives immediate feedback with the same rule.
+- **Prevention / follow-up:** Extract age-check into a shared utility if more forms need it; consider a `max` attribute on the HTML date input for additional UX guardrail.
