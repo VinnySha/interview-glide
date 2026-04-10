@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { trpc } from "@/lib/trpc/client";
+import { validateEmail, emailWillBeLowercased } from "@/lib/validation/email";
 import Link from "next/link";
 
 type SignupFormData = {
@@ -36,6 +37,7 @@ export default function SignupPage() {
   const signupMutation = trpc.auth.signup.useMutation();
 
   const password = watch("password");
+  const emailValue = watch("email");
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof SignupFormData)[] = [];
@@ -82,15 +84,15 @@ export default function SignupPage() {
                 <input
                   {...register("email", {
                     required: "Email is required",
-                    pattern: {
-                      value: /^\S+@\S+$/i,
-                      message: "Invalid email address",
-                    },
+                    validate: (v) => validateEmail(v),
                   })}
                   type="email"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                 />
                 {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
+                {!errors.email && emailValue && emailWillBeLowercased(emailValue) && (
+                  <p className="mt-1 text-sm text-yellow-600">Your email will be stored as lowercase: {emailValue.toLowerCase()}</p>
+                )}
               </div>
 
               <div>

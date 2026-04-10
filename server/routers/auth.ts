@@ -7,13 +7,18 @@ import { db } from "@/lib/db";
 import { users, sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { encryptSsn } from "@/lib/security/ssn";
+import { detectEmailTypo } from "@/lib/validation/email";
 import { sanitizeUser } from "../lib/sanitizeUser";
 
 export const authRouter = router({
   signup: publicProcedure
     .input(
       z.object({
-        email: z.string().email().toLowerCase(),
+        email: z
+          .string()
+          .email()
+          .toLowerCase()
+          .refine((v) => !detectEmailTypo(v), { message: "Email TLD looks like a typo" }),
         password: z
           .string()
           .min(8, "Password must be at least 8 characters")
