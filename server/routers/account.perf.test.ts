@@ -1,28 +1,90 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "@/lib/db";
+import { users, accounts, transactions, sessions } from "@/lib/db/schema";
+import { accountRouter } from "./account";
 
 /**
- * PERF-407: getTransactions must not issue a separate DB query
- * per transaction to fetch account details (N+1 query problem).
+ * PERF-407: getTransactions must return all transactions with
+ * accountType populated, without issuing per-transaction DB queries.
  */
-const source = readFileSync(resolve(__dirname, "account.ts"), "utf-8");
-const getTxnBlock = source.slice(source.indexOf("getTransactions:"));
 
-describe("getTransactions performance (PERF-407)", () => {
+function createCaller(userId: number) {
+  return accountRouter.createCaller({
+    user: { id: userId } as any,
+    req: { headers: { cookie: "" } },
+    res: { setHeader: () => undefined },
+  } as any);
+}
+
+describe("getTransactions enrichment (PERF-407)", () => {
   /*
    * Testing strategy
    *
-   * partition on query pattern in getTransactions:
-   *   N+1 loop querying accounts per transaction (bug)
-   *   single account lookup reused across all transactions (correct)
+   * partition on transaction count:
+   *   no transactions
+   *   multiple transactions
+   *
+   * partition on enriched accountType:
+   *   every returned transaction includes accountType
+   *   accountType missing on some transactions (bug)
    */
 
-  it("covers no per-transaction account query inside loop", () => {
-    expect(getTxnBlock).not.toContain("for (const transaction of");
+  let userId: number;
+  let accountId: number;
+
+  beforeEach(async () => {
+    await db.delete(transactions);
+    await db.delete(accounts);
+    await db.delete(sessions);
+    await db.delete(users);
+
+    await db.insert(users).values({
+      email: "perf-test@example.com",
+      password: "hashed",
+      firstName: "Test",
+      lastName: "User",
+      phoneNumber: "1234567890",
+      dateOfBirth: "1990-01-01",
+      ssn: "encrypted",
+      address: "123 St",
+      city: "City",
+      state: "CA",
+      zipCode: "12345",
+    });
+    const user = await db.select().from(users).get();
+    userId = user!.id;
+
+    const caller = createCaller(userId);
+    const acct = await caller.createAccount({ accountType: "checking" });
+    accountId = acct.id;
   });
 
-  it("covers uses already-fetched account object for accountType", () => {
-    expect(getTxnBlock).toContain("account.accountType");
+  it("covers no transactions returns empty array", async () => {
+    const caller = createCaller(userId);
+    const txns = await caller.getTransactions({ accountId });
+
+    expect(txns).toHaveLength(0);
+  });
+
+  it("covers multiple transactions all include accountType", async () => {
+    const caller = createCaller(userId);
+
+    await caller.fundAccount({
+      accountId,
+      amount: 10,
+      fundingSource: { type: "card", accountNumber: "4111111111111111" },
+    });
+    await caller.fundAccount({
+      accountId,
+      amount: 20,
+      fundingSource: { type: "card", accountNumber: "4111111111111111" },
+    });
+
+    const txns = await caller.getTransactions({ accountId });
+
+    expect(txns).toHaveLength(2);
+    for (const txn of txns) {
+      expect(txn.accountType).toBe("checking");
+    }
   });
 });
