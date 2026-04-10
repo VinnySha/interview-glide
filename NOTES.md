@@ -79,3 +79,11 @@
 - **Fix:** Added `db.delete(sessions).where(eq(sessions.userId, user.id))` before session creation in both signup and login; added regression tests in `server/routers/auth.session.test.ts`.
 - **Why this fix is correct:** Each auth event now invalidates all prior sessions, ensuring only one valid session per user at a time.
 - **Prevention / follow-up:** Consider a session limit (e.g. max N devices) instead of single-session if multi-device support is needed later.
+
+## Ticket PERF-403: Session Expiry
+
+- **Symptom:** Sessions were accepted as valid right up until the exact expiry timestamp, with only a console warning near expiry.
+- **Root cause:** `createContext` in `server/trpc.ts` used `new Date(session.expiresAt) > new Date()` (strict `>`) and logged a warning within 60s of expiry but still authenticated the request.
+- **Fix:** Added a 60-second buffer: sessions are rejected when `expiresIn <= 60_000ms`, removed the warning-only code path; added partitioned tests in `server/session.expiry.test.ts`.
+- **Why this fix is correct:** Requests near session expiry are now denied rather than racing against the clock, reducing the window for stale-session access.
+- **Prevention / follow-up:** Make buffer configurable via env var; consider issuing a refresh token before the buffer window.
