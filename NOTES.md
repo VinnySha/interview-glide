@@ -37,3 +37,11 @@
 - **Fix:** Removed the unused `conn` and `connections` array from `initDb()`; added a source-level regression test in `lib/db/index.test.ts` asserting only one `new Database(` call exists and no dangling connection arrays remain.
 - **Why this fix is correct:** Only one SQLite connection (the one backing Drizzle) is now opened; the leaked second handle and its accumulating array are gone.
 - **Prevention / follow-up:** Code review for extra connection instantiations; add connection-count monitoring in production.
+
+## Ticket PERF-406: Balance Calculation
+
+- **Symptom:** Account balances became incorrect after many transactions.
+- **Root cause:** `fundAccount` computed the returned `newBalance` by adding `amount/100` in a 100-iteration loop, accumulating floating-point drift. The DB update was correct (`balance + amount`) but the client received the drifting value.
+- **Fix:** Replaced the loop with a single `account.balance + amount` rounded to cents (`Math.round(… * 100) / 100`); added partitioned tests in `server/routers/account.balance.test.ts`.
+- **Why this fix is correct:** One addition + cent rounding eliminates drift; the returned balance now matches exactly what the DB stores.
+- **Prevention / follow-up:** Use integer cents internally for all monetary arithmetic if precision requirements grow.
