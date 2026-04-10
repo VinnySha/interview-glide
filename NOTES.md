@@ -112,6 +112,14 @@
 - **Why this fix is correct:** All major issuers including modern Mastercard ranges are now recognized; `detectCardType` enables future UI card-type display.
 - **Prevention / follow-up:** Keep issuer rules updated as networks add prefixes; wire `detectCardType` into the FundingModal UI for visual feedback.
 
+## Ticket VAL-207: Routing Number Optional
+
+- **Symptom:** Bank transfers could be submitted without a routing number, causing failed ACH transfers.
+- **Root cause:** Server schema defined `routingNumber` as `.optional()` unconditionally; no server-side enforcement that bank transfers require it.
+- **Fix:** Added `.refine()` on the server `fundAccount` schema requiring `routingNumber` when `type === "bank"`; added partitioned tests in `server/routers/account.routing.test.ts`.
+- **Why this fix is correct:** Server now rejects bank transfers missing a routing number regardless of client behavior; card transfers remain unaffected.
+- **Prevention / follow-up:** Consider conditional Zod schemas (discriminated union) for cleaner type-dependent validation.
+
 ---
 
 # Medium Priority
