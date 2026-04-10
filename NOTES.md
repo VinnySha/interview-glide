@@ -136,6 +136,14 @@
 - **Why this fix is correct:** Client catches format issues, TLD typos (edit distance 1 from known TLDs), and notifies users about lowercase normalization before submission; server rejects suspicious TLDs as a second layer.
 - **Prevention / follow-up:** Consider DNS MX lookup for production-grade email validation.
 
+## Ticket PERF-407: Performance Degradation
+
+- **Symptom:** System slowed down when loading transaction history for accounts with many transactions.
+- **Root cause:** `getTransactions` ran an N+1 query — for each transaction, it issued a separate `db.select().from(accounts)` to get the account type, even though the account was already fetched for ownership verification.
+- **Fix:** Replaced the per-transaction loop query with `account.accountType` from the already-fetched account object; added regression tests in `server/routers/account.perf.test.ts`.
+- **Why this fix is correct:** Transaction enrichment now uses O(1) data from the existing account lookup instead of O(N) redundant queries.
+- **Prevention / follow-up:** Review other query paths for N+1 patterns; consider query analysis tooling.
+
 ---
 
 # Medium Priority
