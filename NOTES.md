@@ -128,6 +128,14 @@
 - **Why this fix is correct:** Both client and server now reject `$0.00` — client gives immediate feedback, server enforces as source of truth.
 - **Prevention / follow-up:** Ensure client min values match server constraints; consider a shared validation constant.
 
+## Ticket VAL-201: Email Validation Problems
+
+- **Symptom:** System accepted invalid email formats (e.g. missing TLD) and common typos like `.con`; silently lowercased without notifying the user.
+- **Root cause:** Client used a loose regex (`/^\S+@\S+$/i`) that accepted anything with `@`; server had `z.string().email()` but no typo detection; lowercase normalization happened silently.
+- **Fix:** Added `lib/validation/email.ts` with stricter format validation, Levenshtein-based TLD typo detection against known TLDs, and an `emailWillBeLowercased()` helper; wired into signup client validation and server `.refine()`; added a yellow notice in the signup form when uppercase is detected; added partitioned tests in `lib/validation/email.test.ts`.
+- **Why this fix is correct:** Client catches format issues, TLD typos (edit distance 1 from known TLDs), and notifies users about lowercase normalization before submission; server rejects suspicious TLDs as a second layer.
+- **Prevention / follow-up:** Consider DNS MX lookup for production-grade email validation.
+
 ---
 
 # Medium Priority
