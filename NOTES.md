@@ -181,3 +181,11 @@
 - **Fix:** Changed pattern to `/^(0|[1-9]\d*)\.?\d{0,2}$/` which allows `0` or a non-zero-leading number; added partitioned tests in `components/FundingModal.amount.test.ts`.
 - **Why this fix is correct:** `0` is allowed for sub-dollar amounts (`0.50`), but `01`, `00100` etc. are rejected. Decimal precision is still capped at 2 places.
 - **Prevention / follow-up:** Consider normalizing the input on blur (strip leading zeros) for better UX.
+
+## Ticket PERF-404: Transaction Sorting
+
+- **Symptom:** Transaction order appeared random when reviewing history.
+- **Root cause:** `getTransactions` query had no `orderBy` clause — SQLite does not guarantee row order without one.
+- **Fix:** Added `.orderBy(desc(transactions.id))` so transactions are returned newest first; added behavioral tests in `server/routers/account.sorting.test.ts`.
+- **Why this fix is correct:** Explicit descending sort by ID gives deterministic newest-first ordering regardless of DB internals.
+- **Prevention / follow-up:** Require `orderBy` on all list queries as a code review convention.
