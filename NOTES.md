@@ -120,6 +120,14 @@
 - **Why this fix is correct:** Server now rejects bank transfers missing a routing number regardless of client behavior; card transfers remain unaffected.
 - **Prevention / follow-up:** Consider conditional Zod schemas (discriminated union) for cleaner type-dependent validation.
 
+## Ticket VAL-205: Zero Amount Funding
+
+- **Symptom:** Users could submit a funding request for $0.00.
+- **Root cause:** Client `min` validation used `value: 0.0` instead of `0.01`, so zero passed the `>=` check. The server's `z.number().positive()` correctly rejects zero, but the client let it through to the user without feedback.
+- **Fix:** Changed client min to `0.01`; added partitioned tests in `server/routers/account.amount.test.ts` confirming the server schema rejects zero and negative amounts.
+- **Why this fix is correct:** Both client and server now reject `$0.00` — client gives immediate feedback, server enforces as source of truth.
+- **Prevention / follow-up:** Ensure client min values match server constraints; consider a shared validation constant.
+
 ---
 
 # Medium Priority
