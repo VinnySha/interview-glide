@@ -8,6 +8,7 @@ import { users, sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { encryptSsn } from "@/lib/security/ssn";
 import { detectEmailTypo } from "@/lib/validation/email";
+import { US_STATE_CODES } from "@/lib/validation/stateCodes";
 import { sanitizeUser } from "../lib/sanitizeUser";
 
 export const authRouter = router({
@@ -46,7 +47,10 @@ export const authRouter = router({
         ssn: z.string().regex(/^\d{9}$/),
         address: z.string().min(1),
         city: z.string().min(1),
-        state: z.string().length(2).toUpperCase(),
+        state: z.string().length(2).toUpperCase().refine(
+          (v) => US_STATE_CODES.has(v),
+          { message: "Invalid US state code" }
+        ),
         zipCode: z.string().regex(/^\d{5}$/),
       })
     )

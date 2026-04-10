@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { trpc } from "@/lib/trpc/client";
 import { validateEmail, emailWillBeLowercased } from "@/lib/validation/email";
+import { validateStateCode } from "@/lib/validation/stateCodes";
 import Link from "next/link";
 
 type SignupFormData = {
@@ -263,10 +264,7 @@ export default function SignupPage() {
                   <input
                     {...register("state", {
                       required: "State is required",
-                      pattern: {
-                        value: /^[A-Z]{2}$/,
-                        message: "Use 2-letter state code",
-                      },
+                      validate: (v) => validateStateCode(v),
                     })}
                     type="text"
                     placeholder="CA"
