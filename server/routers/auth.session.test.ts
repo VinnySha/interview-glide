@@ -1,36 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { users, accounts, transactions, sessions } from "@/lib/db/schema";
+import { sessions, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { authRouter } from "./auth";
+import { resetDb, createAuthCaller, TEST_SIGNUP_INPUT } from "../test-utils/fixtures";
 
 /**
  * SEC-304: Signup and login must invalidate prior sessions,
  * ensuring only one valid session per user at a time.
  */
-
-function createCaller() {
-  return authRouter.createCaller({
-    user: null,
-    req: { headers: { cookie: "" } },
-    res: { setHeader: () => undefined },
-  } as any);
-}
-
-const signupInput = {
-  email: "session-test@example.com",
-  password: "Abcdef1!",
-  firstName: "Test",
-  lastName: "User",
-  phoneNumber: "+15555550123",
-  dateOfBirth: "1990-01-01",
-  ssn: "123456789",
-  address: "123 St",
-  city: "City",
-  state: "CA",
-  zipCode: "12345",
-};
-
 describe("session invalidation on auth (SEC-304)", () => {
   /*
    * Testing strategy
@@ -45,17 +22,16 @@ describe("session invalidation on auth (SEC-304)", () => {
    *   multiple sessions for user (bug)
    */
 
+  const email = "session-test@example.com";
+
   beforeEach(async () => {
     process.env.SSN_ENCRYPTION_KEY = "test-only-ssn-key";
-    await db.delete(sessions);
-    await db.delete(transactions);
-    await db.delete(accounts);
-    await db.delete(users);
+    await resetDb();
   });
 
   it("covers signup creates exactly one session", async () => {
-    const caller = createCaller();
-    const result = await caller.signup(signupInput);
+    const caller = createAuthCaller();
+    const result = await caller.signup({ ...TEST_SIGNUP_INPUT, email });
 
     const userSessions = await db
       .select()
@@ -66,15 +42,12 @@ describe("session invalidation on auth (SEC-304)", () => {
   });
 
   it("covers login after signup still results in exactly one session", async () => {
-    const caller = createCaller();
-    await caller.signup(signupInput);
+    const caller = createAuthCaller();
+    await caller.signup({ ...TEST_SIGNUP_INPUT, email });
 
-    await caller.login({
-      email: signupInput.email,
-      password: signupInput.password,
-    });
+    await caller.login({ email, password: TEST_SIGNUP_INPUT.password });
 
-    const user = await db.select().from(users).where(eq(users.email, signupInput.email)).get();
+    const user = await db.select().from(users).where(eq(users.email, email)).get();
     const userSessions = await db
       .select()
       .from(sessions)
@@ -84,19 +57,13 @@ describe("session invalidation on auth (SEC-304)", () => {
   });
 
   it("covers second login still results in exactly one session", async () => {
-    const caller = createCaller();
-    await caller.signup(signupInput);
+    const caller = createAuthCaller();
+    await caller.signup({ ...TEST_SIGNUP_INPUT, email });
 
-    await caller.login({
-      email: signupInput.email,
-      password: signupInput.password,
-    });
-    await caller.login({
-      email: signupInput.email,
-      password: signupInput.password,
-    });
+    await caller.login({ email, password: TEST_SIGNUP_INPUT.password });
+    await caller.login({ email, password: TEST_SIGNUP_INPUT.password });
 
-    const user = await db.select().from(users).where(eq(users.email, signupInput.email)).get();
+    const user = await db.select().from(users).where(eq(users.email, email)).get();
     const userSessions = await db
       .select()
       .from(sessions)

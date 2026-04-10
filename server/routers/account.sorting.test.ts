@@ -1,21 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/lib/db";
-import { users, accounts, transactions, sessions } from "@/lib/db/schema";
-import { accountRouter } from "./account";
+import { resetDb, insertTestUser, createAccountCaller } from "../test-utils/fixtures";
 
 /**
  * PERF-404: getTransactions must return transactions in a
  * deterministic order (newest first).
  */
-
-function createCaller(userId: number) {
-  return accountRouter.createCaller({
-    user: { id: userId } as any,
-    req: { headers: { cookie: "" } },
-    res: { setHeader: () => undefined },
-  } as any);
-}
-
 describe("transaction sorting (PERF-404)", () => {
   /*
    * Testing strategy
@@ -33,34 +22,16 @@ describe("transaction sorting (PERF-404)", () => {
   let accountId: number;
 
   beforeEach(async () => {
-    await db.delete(transactions);
-    await db.delete(accounts);
-    await db.delete(sessions);
-    await db.delete(users);
+    await resetDb();
+    userId = await insertTestUser("sort-test@example.com");
 
-    await db.insert(users).values({
-      email: "sort-test@example.com",
-      password: "hashed",
-      firstName: "Test",
-      lastName: "User",
-      phoneNumber: "1234567890",
-      dateOfBirth: "1990-01-01",
-      ssn: "encrypted",
-      address: "123 St",
-      city: "City",
-      state: "CA",
-      zipCode: "12345",
-    });
-    const user = await db.select().from(users).get();
-    userId = user!.id;
-
-    const caller = createCaller(userId);
+    const caller = createAccountCaller(userId);
     const acct = await caller.createAccount({ accountType: "checking" });
     accountId = acct.id;
   });
 
   it("covers multiple transactions returned newest first", async () => {
-    const caller = createCaller(userId);
+    const caller = createAccountCaller(userId);
 
     await caller.fundAccount({
       accountId,
@@ -87,7 +58,7 @@ describe("transaction sorting (PERF-404)", () => {
   });
 
   it("covers single transaction is returned", async () => {
-    const caller = createCaller(userId);
+    const caller = createAccountCaller(userId);
 
     await caller.fundAccount({
       accountId,
