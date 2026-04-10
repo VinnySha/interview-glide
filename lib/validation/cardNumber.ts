@@ -33,15 +33,29 @@ export function luhnCheck(cardNumber: string): boolean {
  * @returns true if prefix and length match a known issuer.
  */
 export function isRecognizedCard(cardNumber: string): boolean {
+  return detectCardType(cardNumber) !== null;
+}
+
+export type CardType = "visa" | "mastercard" | "amex" | "discover" | "jcb";
+
+/**
+ * Detect the card issuer from a card number's prefix and length.
+ *
+ * @param cardNumber string of digits.
+ * @returns the issuer name, or null if unrecognized.
+ */
+export function detectCardType(cardNumber: string): CardType | null {
   const len = cardNumber.length;
 
-  if (/^4/.test(cardNumber) && (len === 13 || len === 16)) return true;                 // Visa
-  if (/^5[1-5]/.test(cardNumber) && len === 16) return true;                            // Mastercard
-  if (/^3[47]/.test(cardNumber) && len === 15) return true;                             // Amex
-  if (/^6(?:011|5)/.test(cardNumber) && len === 16) return true;                        // Discover
-  if (/^35(?:2[89]|[3-8])/.test(cardNumber) && (len === 15 || len === 16)) return true; // JCB
+  if (/^4/.test(cardNumber) && (len === 13 || len === 16)) return "visa";
+  if (/^5[1-5]/.test(cardNumber) && len === 16) return "mastercard";                    // Classic range
+  if (/^2(?:22[1-9]|2[3-9]\d|[3-6]\d{2}|7[01]\d|720)/.test(cardNumber) && len === 16)
+    return "mastercard";                                                                 // 2-series (2221-2720)
+  if (/^3[47]/.test(cardNumber) && len === 15) return "amex";
+  if (/^6(?:011|5)/.test(cardNumber) && len === 16) return "discover";
+  if (/^35(?:2[89]|[3-8])/.test(cardNumber) && (len === 15 || len === 16)) return "jcb";
 
-  return false;
+  return null;
 }
 
 /**
