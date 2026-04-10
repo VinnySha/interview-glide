@@ -95,3 +95,17 @@
 - **Fix:** Replaced with `crypto.randomInt()` (CSPRNG); added regression test in `server/routers/account.rng.test.ts`.
 - **Why this fix is correct:** `crypto.randomInt` draws from the OS entropy pool, making account numbers unpredictable.
 - **Prevention / follow-up:** Lint or code review for `Math.random` usage in security-sensitive contexts.
+
+---
+
+# Medium Priority
+
+---
+
+## Ticket PERF-402: Logout Issues
+
+- **Symptom:** Logout always returned `success: true` even when the session was not deleted.
+- **Root cause:** Session deletion was gated on `if (ctx.user)` — if context resolution failed (expired/invalid token), the DB row was never deleted but the response still reported success.
+- **Fix:** Moved token extraction and session deletion outside the `ctx.user` guard; return `success: false` when no token is present; added regression tests in `server/routers/auth.logout.test.ts`.
+- **Why this fix is correct:** Logout now always attempts to delete the session row from the cookie token, and honestly reports whether it did.
+- **Prevention / follow-up:** Integration test logout with an expired session to confirm the row is cleaned up.
